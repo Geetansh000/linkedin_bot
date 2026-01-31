@@ -6,6 +6,8 @@ from modules.helpers import *
 from modules.clickers_and_finders import *
 import time
 
+seen_profiles = set()
+
 
 def send_message(driver: WebDriver):
     wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
@@ -40,21 +42,9 @@ def send_message(driver: WebDriver):
             time.sleep(5)
 
 
-def find_connections(driver: WebDriver):
-    search_url = "https://www.linkedin.com/mynetwork/invite-connect/connections/"
-    driver.get(search_url)
-
-    wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
-    time.sleep(3)
-
-    # ✅ get actual connection cards
-    cards = driver.find_elements(
-        By.XPATH,
-        '//div[@data-view-name="connections-list"]//div[.//div[@data-view-name="message-button"]]'
-    )
-
+def message_connections(driver: WebDriver, cards: list):
     print_lg(f"Found {len(cards)} connection cards.")
-    seen_profiles = set()
+    global seen_profiles
     for card in cards:
         try:
             driver.execute_script(
@@ -101,3 +91,47 @@ def find_connections(driver: WebDriver):
         except Exception:
             print_lg("Message button not rendered yet, skipping")
             continue
+
+
+def find_connections(driver: WebDriver):
+    search_url = "https://www.linkedin.com/mynetwork/invite-connect/connections/"
+    driver.get(search_url)
+
+    wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+    time.sleep(3)
+    retry = old_length = 0
+    cards = []
+    while retry < 3:
+        try:
+            # ✅ get actual connection cards
+            old_length = len(cards)  # Store the length of the previous cards
+            cards = driver.find_elements(
+                By.XPATH,
+                '//div[@data-view-name="connections-list"]//div[.//div[@data-view-name="message-button"]]'
+            )
+            if len(cards) > old_length:
+                retry = 0  # Reset retry if new cards are found
+            elif len(cards) == old_length and len(cards) > 0:
+                break  # Exit if no new cards are found
+            # Process only new cards
+            message_connections(driver, cards[old_length:])
+            # Scroll to the bottom to load all connections
+            try:
+                load_more_button = driver.find_element(
+                    By.XPATH,
+                    './/button[.//span[text()="Load more"]]'
+                )
+                driver.execute_script(
+                    "arguments[0].scrollIntoView({block:'center'});", load_more_button
+                )
+                time.sleep(1)
+                load_more_button.click()
+                print_lg("Clicked Load More button")
+            except Exception:
+                driver.execute_script(
+                    "window.scrollTo(0, document.body.scrollHeight);")
+            time.sleep(2)
+
+        except Exception as e:
+            print_lg(f"Error finding connections: {e}")
+            retry += 1
