@@ -1,5 +1,6 @@
 from selenium.webdriver.common.by import By
 from config.text import message_text
+from config.personals import skip_words
 from modules.open_chrome import *
 from modules.helpers import *
 from modules.clickers_and_finders import *
@@ -8,13 +9,20 @@ import time
 
 def send_message(driver: WebDriver):
     wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+    time.sleep(5)
     try:
-        time.sleep(5)
+        text = driver.find_element(
+            By.XPATH, './/div[contains(@class,"artdeco-entity-lockup__subtitle")]').text
+        if any(skip_word in text for skip_word in skip_words):
+            print_lg("Skipping profile")
+            return
+    except Exception:
+        print_lg("Title not found, skipping")
+    try:
         driver.find_element(
             By.XPATH, './/div[contains(@class,"msg-s-message-list")]')
     except Exception:
         try:
-            print_lg("No message history found, continuing")
             text_input = driver.find_element(
                 By.XPATH,
                 './/div[contains(@class, "msg-form__contenteditable")]'
@@ -67,7 +75,6 @@ def find_connections(driver: WebDriver):
 
             seen_profiles.add(href)
 
-            print_lg(f"Opening message link: {href}")
             driver.execute_script("window.open(arguments[0], '_blank');", href)
 
             driver.switch_to.window(driver.window_handles[-1])
@@ -79,7 +86,8 @@ def find_connections(driver: WebDriver):
                         break
                     except:
                         if retry >= 3:
-                            raise Exception("Max retries reached for sending message")
+                            raise Exception(
+                                "Max retries reached for sending message")
                         print_lg("Retrying to send message...")
                         time.sleep(2)
                         retry += 1

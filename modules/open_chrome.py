@@ -72,7 +72,7 @@ def createChromeSession(isRetry: bool = False):
     options.add_argument("--remote-debugging-port=0")
 
     print_lg(
-        "IF YOU HAVE MORE THAN 10 TABS OPENED, PLEASE CLOSE OR BOOKMARK THEM!"
+        "IF YOU HAVE MORE THAN 5 TABS OPENED, PLEASE CLOSE OR BOOKMARK THEM!"
     )
 
     profile_dir = find_default_profile_directory()
@@ -98,14 +98,19 @@ def createChromeSession(isRetry: bool = False):
     # DRIVER CREATION
     # ---------------------------
     if stealth_mode:
-        print_lg("Starting Chrome in STEALTH mode")
 
         chrome_version = get_chrome_major_version()
 
+        import random
+        debug_port = random.randint(40000, 50000)
+        options.add_argument(f"--remote-debugging-port={debug_port}")
+        print_lg(f"Starting Chrome with remote debugging port: {debug_port}")
+        # add a try for 5 sec delay then retry this with different port
         driver = uc.Chrome(
             options=options,
             version_main=chrome_version,
-            use_subprocess=True   # 🔥 REQUIRED
+            use_subprocess=True,
+            enable_cdp_events=True,
         )
 
     else:

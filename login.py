@@ -1,4 +1,4 @@
-import html
+from message import *
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.common.keys import Keys
@@ -15,7 +15,6 @@ from modules.clickers_and_finders import *
 import time
 # Load environment variables from .env file
 load_dotenv()
-from message import *
 
 
 def is_logged_in_LN() -> bool:
@@ -109,6 +108,8 @@ def search_and_add_connections(driver):
     try:
         print_lg(f"Searching for '{SEARCH_STRING}' and adding connections...")
         page = 1
+        connection_count = 0
+
         search_url = f"https://www.linkedin.com/search/results/people/?keywords={SEARCH_STRING.replace(' ', '%20')}"
         while True:
             driver.get(search_url)
@@ -129,12 +130,10 @@ def search_and_add_connections(driver):
                     try:
                         connect_btn = div.find_element(
                             By.XPATH, './/button[.//span[text()="Connect"]]')
-                        print_lg("Found Connect button as <button>")
                     except Exception:
                         try:
                             connect_btn = div.find_element(
                                 By.XPATH, './/a[.//span[text()="Connect"]]')
-                            print_lg("Found Connect button as <a>")
                         except Exception:
                             continue
 
@@ -142,7 +141,6 @@ def search_and_add_connections(driver):
                         "arguments[0].scrollIntoView({block:'center'});", connect_btn
                     )
                     time.sleep(0.5)
-
                     if not (connect_btn.is_displayed() and connect_btn.is_enabled()):
                         continue
 
@@ -164,11 +162,12 @@ def search_and_add_connections(driver):
                     print_lg(f"Error processing profile div: {e}")
                     continue
 
+            connection_count += count
+            print_lg(
+                f"Sent {connection_count} connection requests for '{SEARCH_STRING}'.")
             page += 1
             search_url = f"https://www.linkedin.com/search/results/people/?keywords={SEARCH_STRING.replace(' ', '%20')}&page={page}"
             time.sleep(2)
-            print_lg(
-                f"Sent {count} connection requests for '{SEARCH_STRING}'.")
 
     except Exception as e:
         print_lg(f"Error during search and add connections: {e}")
@@ -190,7 +189,8 @@ def main():
         driver = login_LN(email, password)
         # After login, search and add connections for the specified search string
         # add a choice to proceed with searching and adding connections or messaging
-        choice = pyautogui.confirm("Choose an action:", buttons=["Search and Add Connections", "Send Messages"])
+        choice = pyautogui.confirm("Choose an action:", buttons=[
+            "Search and Add Connections", "Send Messages"])
         if choice == "Search and Add Connections":
             search_and_add_connections(driver)
         elif choice == "Send Messages":
@@ -202,6 +202,28 @@ def main():
         error_msg = f"Failed to login: {e}"
         print(error_msg)
         pyautogui.alert(error_msg, title="Login Failed")
+    finally:
+
+        pyautogui.alert(
+            text="""        🎉 Mission Accomplished!
+
+        Your LinkedIn automation has completed successfully.
+
+        Connection requests and messages have been sent.
+        You can now open LinkedIn and review the activity.
+
+        ✨ Thank you for using this tool.
+        See you again soon — keep networking and growing!
+
+        — Geetansh's Automation Assistant""",
+            title="Automation Complete ✅",
+            button="Awesome!"
+        )
+
+        # Close the browser
+        print_lg("Closing the browser...")
+        driver.quit()
+        # Welcome message before quitting with pyautogui
 
 
 if __name__ == "__main__":
