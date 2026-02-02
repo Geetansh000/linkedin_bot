@@ -232,8 +232,8 @@ def find_connections(driver: WebDriver):
                     cards) else len(cards)
                 print_lg(f"Processing connections from {start} to {end} {len(cards)}")
                 check_profile(driver, cards[start:end])
-                if end <= len(cards):
-                    break  # Exit if we've reached
+                if connection_end is not None and connection_end < len(cards):
+                    break  # Exit if we've reached the end
             else:
                 check_profile(driver, cards[old_length:])
             # Scroll to the bottom to load all connections
