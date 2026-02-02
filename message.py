@@ -226,13 +226,11 @@ def find_connections(driver: WebDriver):
                 if connection_start is not None:
                     if connection_start >= len(cards):
                         scroll_to_bottom(driver)
-                        print_lg(
-                            "Connection start index out of range, skipping messaging.")
-                        break
-                    else:
-                        start = old_length if connection_start < old_length else connection_start
+                        continue
+                    start = old_length if connection_start < old_length else connection_start
                 end = connection_end if connection_end is not None and connection_end <= len(
                     cards) else len(cards)
+                print_lg(f"Processing connections from {start} to {end} {len(cards)}")
                 check_profile(driver, cards[start:end])
                 if end <= len(cards):
                     break  # Exit if we've reached
