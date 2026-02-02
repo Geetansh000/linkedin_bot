@@ -10,4 +10,8 @@ your_name = os.getenv("NAME")
 years_of_experience = os.getenv("YEARS_OF_EXPERIENCE")
 resume_link = os.getenv("RESUME_LINK")
 portfolio_link = os.getenv("PORTFOLIO_LINK")
-skip_words = os.getenv("SKIP_WORDS", "").split(",")
+skip_words = list(map(str.strip, os.getenv("SKIP_WORDS", "").split(
+    ","))) if os.getenv("SKIP_WORDS", "") else []
+
+connection_start = None
+connection_end = None

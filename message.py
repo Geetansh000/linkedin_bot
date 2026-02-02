@@ -1,6 +1,7 @@
+import pyautogui
 from selenium.webdriver.common.by import By
 from config.text import message_text
-from config.personals import skip_words
+from config.personals import skip_words, connection_end, connection_start
 from modules.open_chrome import *
 from modules.helpers import *
 from modules.clickers_and_finders import *
@@ -15,7 +16,7 @@ def send_message(driver: WebDriver):
     try:
         text = driver.find_element(
             By.XPATH, './/div[contains(@class,"artdeco-entity-lockup__subtitle")]').text
-        if any(skip_word in text for skip_word in skip_words):
+        if text and any(skip_word.strip() in text.lower() for skip_word in skip_words):
             print_lg("Skipping profile")
             return
     except Exception:
@@ -51,7 +52,6 @@ def message_connections(driver: WebDriver, cards: list):
                 "arguments[0].scrollIntoView({block:'center'});", card
             )
             time.sleep(0.3)
-
             message_link = card.find_element(
                 By.XPATH,
                 './/div[@data-view-name="message-button"]//a[@aria-label="Message"]'
@@ -93,6 +93,111 @@ def message_connections(driver: WebDriver, cards: list):
             continue
 
 
+def message_connection(driver: WebDriver, href: str):
+    global seen_profiles
+    try:
+        if href in seen_profiles:
+            return
+
+        seen_profiles.add(href)
+
+        driver.execute_script("window.open(arguments[0], '_blank');", href)
+        driver.switch_to.window(driver.window_handles[-1])
+
+        retry = 0
+        while retry < 3:
+            try:
+                return send_message(driver)
+            except Exception:
+                print_lg("Retrying to send message...")
+                retry += 1
+                time.sleep(2)
+    except Exception:
+        print_lg("Message button not rendered yet, skipping")
+    finally:
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+
+
+def scroll_to_bottom(driver: WebDriver):
+    try:
+        load_more_button = driver.find_element(
+            By.XPATH,
+            './/button[.//span[text()="Load more"]]'
+        )
+        driver.execute_script(
+            "arguments[0].scrollIntoView({block:'center'});", load_more_button
+        )
+        time.sleep(1)
+        load_more_button.click()
+        print_lg("Clicked Load More button")
+    except Exception:
+        driver.execute_script(
+            "window.scrollTo(0, document.body.scrollHeight);")
+    time.sleep(2)
+
+
+def open_and_validate_profile(driver: WebDriver, profile_link: str) -> bool:
+    driver.execute_script("window.open(arguments[0], '_blank');", profile_link)
+    driver.switch_to.window(driver.window_handles[-1])
+
+    try:
+        # Ensure page is loaded
+        wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+
+        # 🔥 BEST WAY: Current company via aria-label
+        company_btn = wait.until(
+            EC.presence_of_element_located(
+                (By.XPATH,
+                 '//button[contains(@aria-label,"Current company:")]')
+            )
+        )
+
+        aria = company_btn.get_attribute("aria-label")
+
+        company = aria.split("Current company:")[1].split(".")[0].strip()
+        if company.lower() in skip_words:
+            print_lg(f"Skipping company: {company} for {profile_link}")
+            return False
+
+        return True
+
+    except Exception:
+        # 🧠 Fallback: check if Experience section exists
+        try:
+            wait.until(
+                EC.presence_of_element_located(
+                    (By.XPATH, '//section[.//span[text()="Experience"]]')
+                )
+            )
+            return True
+
+        except Exception:
+            print_lg(
+                f"Neither current company nor experience found for {profile_link}")
+            return False
+
+    finally:
+        driver.close()
+        driver.switch_to.window(driver.window_handles[0])
+
+
+def check_profile(driver: WebDriver, cards: list):
+    for card in cards:
+        try:
+            profile_link = card.find_element(
+                By.XPATH, './/a[@data-view-name="connections-profile"]').get_attribute("href")
+            message_link = card.find_element(
+                By.XPATH,
+                './/div[@data-view-name="message-button"]//a[@aria-label="Message"]'
+            ).get_attribute("href")
+
+            if open_and_validate_profile(driver, profile_link):
+                message_connection(driver, message_link)
+        except Exception:
+            print_lg("Error checking profile, skipping")
+
+
 def find_connections(driver: WebDriver):
     search_url = "https://www.linkedin.com/mynetwork/invite-connect/connections/"
     driver.get(search_url)
@@ -107,31 +212,39 @@ def find_connections(driver: WebDriver):
             old_length = len(cards)  # Store the length of the previous cards
             cards = driver.find_elements(
                 By.XPATH,
-                '//div[@data-view-name="connections-list"]//div[.//div[@data-view-name="message-button"]]'
+                '//div[@data-view-name="connections-list"]'
             )
+            print_lg(f"Total connections found so far: {len(cards)}")
             if len(cards) > old_length:
                 retry = 0  # Reset retry if new cards are found
             elif len(cards) == old_length and len(cards) > 0:
                 break  # Exit if no new cards are found
             # Process only new cards
-            message_connections(driver, cards[old_length:])
+            if connection_start is not None or connection_end is not None:
+                start = old_length
+                end = len(cards)
+                if connection_start is not None:
+                    if connection_start >= len(cards):
+                        scroll_to_bottom(driver)
+                        print_lg(
+                            "Connection start index out of range, skipping messaging.")
+                        break
+                    else:
+                        start = old_length if connection_start < old_length else connection_start
+                end = connection_end if connection_end is not None and connection_end <= len(
+                    cards) else len(cards)
+                check_profile(driver, cards[start:end])
+                if end <= len(cards):
+                    break  # Exit if we've reached
+            else:
+                check_profile(driver, cards[old_length:])
             # Scroll to the bottom to load all connections
-            try:
-                load_more_button = driver.find_element(
-                    By.XPATH,
-                    './/button[.//span[text()="Load more"]]'
-                )
-                driver.execute_script(
-                    "arguments[0].scrollIntoView({block:'center'});", load_more_button
-                )
-                time.sleep(1)
-                load_more_button.click()
-                print_lg("Clicked Load More button")
-            except Exception:
-                driver.execute_script(
-                    "window.scrollTo(0, document.body.scrollHeight);")
-            time.sleep(2)
+            scroll_to_bottom(driver)
 
         except Exception as e:
             print_lg(f"Error finding connections: {e}")
             retry += 1
+    print_lg(
+        f"Finished messaging connections.")
+    pyautogui.alert(
+        text="Finished messaging connections.", title="Task Completed", button="OK")
