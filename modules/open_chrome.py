@@ -55,7 +55,7 @@ def get_chrome_major_version():
 # ---------------------------
 def createChromeSession(isRetry: bool = False):
     make_directories([logs_folder_path])
-
+    
     options = uc.ChromeOptions() if stealth_mode else Options()
 
     # ❌ Never headless in stealth mode

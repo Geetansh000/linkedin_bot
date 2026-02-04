@@ -275,3 +275,39 @@ def truncate_for_csv(data, max_length: int = 131000, suffix: str = "...[TRUNCATE
         return truncated
     except Exception as e:
         return f"[ERROR CONVERTING DATA: {e}]"
+
+# csv to save profile urls already messagedimport os
+
+
+def save_seen_profiles(profile: str) -> None:
+    """
+    Appends new profile URLs to seen_profiles.csv without deleting existing data.
+    Prevents duplicates across runs.
+    """
+    file_path = os.path.join(logs_folder_path, "seen_profiles.csv")
+
+    try:
+
+        # Append only new ones
+        with open(file_path, 'a', encoding='utf-8') as file:
+            file.write(f"{profile}\n")
+
+    except Exception as e:
+        print_lg(f"Error saving seen profiles to {file_path}: {e}")
+
+
+def get_profiles_from_csv() -> set:
+    """
+    Reads seen_profiles.csv and returns a set of profile URLs.
+    """
+    file_path = os.path.join(logs_folder_path, "seen_profiles.csv")
+    profiles = set()
+
+    try:
+        if os.path.exists(file_path):
+            with open(file_path, 'r', encoding='utf-8') as file:
+                profiles = {line.strip() for line in file if line.strip()}
+    except Exception as e:
+        print_lg(f"Error reading seen profiles from {file_path}: {e}")
+
+    return profiles

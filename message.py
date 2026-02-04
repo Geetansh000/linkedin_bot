@@ -9,6 +9,7 @@ import time
 
 seen_profiles = set()
 
+csv_profiles = get_profiles_from_csv()
 
 def send_message(driver: WebDriver):
     wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
@@ -154,6 +155,7 @@ def open_and_validate_profile(driver: WebDriver, profile_link: str) -> bool:
         )
         scroll_page(driver)
         scroll_to_top(driver)
+        time.sleep(2)
         aria = company_btn.get_attribute("aria-label")
 
         company = aria.split("Current company:")[1].split(".")[0].strip()
@@ -189,6 +191,9 @@ def check_profile(driver: WebDriver, cards: list):
         try:
             profile_link = card.find_element(
                 By.XPATH, './/a[@data-view-name="connections-profile"]').get_attribute("href")
+            if profile_link in csv_profiles:
+                print_lg(f"Already messaged profile: {profile_link}, skipping")
+                continue
             message_link = card.find_element(
                 By.XPATH,
                 './/div[@data-view-name="message-button"]//a[@aria-label="Message"]'
@@ -202,6 +207,7 @@ def check_profile(driver: WebDriver, cards: list):
                 )
                 time.sleep(2)
                 message_connection(driver, message_link)
+                save_seen_profiles(profile_link)
                 time.sleep(2)
         except Exception:
             print_lg("Error checking profile, skipping")
