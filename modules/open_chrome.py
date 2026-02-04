@@ -102,15 +102,15 @@ def createChromeSession(isRetry: bool = False):
         chrome_version = get_chrome_major_version()
 
         import random
-        debug_port = random.randint(40000, 50000)
-        options.add_argument(f"--remote-debugging-port={debug_port}")
-        print_lg(f"Starting Chrome with remote debugging port: {debug_port}")
+        # debug_port = random.randint(40000, 50000)
+        # options.add_argument(f"--remote-debugging-port={debug_port}")
+        # print_lg(f"Starting Chrome with remote debugging port: {debug_port}")
         # add a try for 5 sec delay then retry this with different port
         driver = uc.Chrome(
             options=options,
             version_main=chrome_version,
             use_subprocess=True,
-            enable_cdp_events=True,
+            # enable_cdp_events=True,
         )
 
     else:
@@ -135,10 +135,17 @@ def createChromeSession(isRetry: bool = False):
 # Bootstrap
 # ---------------------------
 options, driver, actions, wait = None, None, None, None
+def restart_driver():
+    global options, driver, actions, wait
+    options, driver, actions, wait = createChromeSession()
+    globals()['driver'] = driver
+    globals()['wait'] = wait
+    globals()['actions'] = actions
+    globals()['options'] = options
+    return options, driver, actions, wait
 
 try:
-    options, driver, actions, wait = createChromeSession()
-
+    restart_driver()
 except SessionNotCreatedException as e:
     critical_error_log(
         "Failed to create Chrome Session, retrying with guest profile", e

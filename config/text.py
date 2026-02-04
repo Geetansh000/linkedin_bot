@@ -10,3 +10,17 @@ Thanks, and happy to connect!
 Best regards,
 {your_name}
 """
+
+
+welcome_message_text = """        
+         🎉 Mission Accomplished!
+         
+Your LinkedIn automation has completed successfully.
+
+Connection requests and messages have been sent.
+You can now open LinkedIn and review the activity.
+
+✨ Thank you for using this tool.
+See you again soon — keep networking and growing!
+
+— Geetansh's Automation Assistant"""
