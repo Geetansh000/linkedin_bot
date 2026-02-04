@@ -152,7 +152,7 @@ def open_and_validate_profile(driver: WebDriver, profile_link: str) -> bool:
                  '//button[contains(@aria-label,"Current company:")]')
             )
         )
-
+        scroll_page(driver)
         aria = company_btn.get_attribute("aria-label")
 
         company = aria.split("Current company:")[1].split(".")[0].strip()

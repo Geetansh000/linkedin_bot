@@ -57,3 +57,8 @@ def text_input(actions: ActionChains, textInputEle: WebElement | bool, value: st
         actions.send_keys(Keys.ENTER).perform()
     else:
         print_lg(f'{textFieldName} input was not given!')
+
+
+def scroll_page(driver: WebDriver):
+    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+    sleep(2)
