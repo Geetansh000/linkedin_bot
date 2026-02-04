@@ -62,3 +62,7 @@ def text_input(actions: ActionChains, textInputEle: WebElement | bool, value: st
 def scroll_page(driver: WebDriver):
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
     sleep(2)
+
+def scroll_to_top(driver: WebDriver):
+    driver.execute_script("window.scrollTo(0, 0);")
+    sleep(2)

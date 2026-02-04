@@ -140,10 +140,10 @@ def scroll_to_bottom(driver: WebDriver):
 def open_and_validate_profile(driver: WebDriver, profile_link: str) -> bool:
     driver.execute_script("window.open(arguments[0], '_blank');", profile_link)
     driver.switch_to.window(driver.window_handles[-1])
-
     try:
         # Ensure page is loaded
         wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
+        time.sleep(2)
 
         # 🔥 BEST WAY: Current company via aria-label
         company_btn = wait.until(
@@ -153,6 +153,7 @@ def open_and_validate_profile(driver: WebDriver, profile_link: str) -> bool:
             )
         )
         scroll_page(driver)
+        scroll_to_top(driver)
         aria = company_btn.get_attribute("aria-label")
 
         company = aria.split("Current company:")[1].split(".")[0].strip()
@@ -182,6 +183,7 @@ def open_and_validate_profile(driver: WebDriver, profile_link: str) -> bool:
         driver.switch_to.window(driver.window_handles[0])
 
 
+
 def check_profile(driver: WebDriver, cards: list):
     for card in cards:
         try:
@@ -193,7 +195,14 @@ def check_profile(driver: WebDriver, cards: list):
             ).get_attribute("href")
 
             if open_and_validate_profile(driver, profile_link):
+                time.sleep(2)
+                #scroll to card
+                driver.execute_script(
+                    "arguments[0].scrollIntoView({block:'center'});", card
+                )
+                time.sleep(2)
                 message_connection(driver, message_link)
+                time.sleep(2)
         except Exception:
             print_lg("Error checking profile, skipping")
 
@@ -230,7 +239,8 @@ def find_connections(driver: WebDriver):
                     start = old_length if connection_start < old_length else connection_start
                 end = connection_end if connection_end is not None and connection_end <= len(
                     cards) else len(cards)
-                print_lg(f"Processing connections from {start} to {end} {len(cards)}")
+                print_lg(
+                    f"Processing connections from {start} to {end} {len(cards)}")
                 check_profile(driver, cards[start:end])
                 if connection_end is not None and connection_end < len(cards):
                     break  # Exit if we've reached the end
