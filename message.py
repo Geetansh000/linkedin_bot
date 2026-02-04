@@ -139,6 +139,7 @@ def scroll_to_bottom(driver: WebDriver):
 
 
 def open_and_validate_profile(driver: WebDriver, profile_link: str) -> bool:
+    global csv_profiles
     driver.execute_script("window.open(arguments[0], '_blank');", profile_link)
     driver.switch_to.window(driver.window_handles[-1])
     try:
@@ -161,6 +162,8 @@ def open_and_validate_profile(driver: WebDriver, profile_link: str) -> bool:
         company = aria.split("Current company:")[1].split(".")[0].strip()
         if company.lower() in skip_words:
             print_lg(f"Skipping company: {company} for {profile_link}")
+            csv_profiles.add(profile_link)
+            save_seen_profiles(profile_link)
             return False
 
         return True
@@ -178,6 +181,8 @@ def open_and_validate_profile(driver: WebDriver, profile_link: str) -> bool:
         except Exception:
             print_lg(
                 f"Neither current company nor experience found for {profile_link}")
+            csv_profiles.add(profile_link)
+            save_seen_profiles(profile_link)
             return False
 
     finally:
