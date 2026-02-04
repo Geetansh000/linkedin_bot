@@ -187,6 +187,7 @@ def open_and_validate_profile(driver: WebDriver, profile_link: str) -> bool:
 
 
 def check_profile(driver: WebDriver, cards: list):
+    global csv_profiles
     for card in cards:
         try:
             profile_link = card.find_element(
@@ -207,6 +208,7 @@ def check_profile(driver: WebDriver, cards: list):
                 )
                 time.sleep(2)
                 message_connection(driver, message_link)
+                csv_profiles.add(profile_link)
                 save_seen_profiles(profile_link)
                 time.sleep(2)
         except Exception:
