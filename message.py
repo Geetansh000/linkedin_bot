@@ -11,6 +11,13 @@ seen_profiles = set()
 
 csv_profiles = get_profiles_from_csv()
 
+
+def check_save_seen_profiles(profile_link: str):
+    global csv_profiles
+    csv_profiles.add(profile_link)
+    save_seen_profiles(profile_link)
+
+
 def send_message(driver: WebDriver):
     wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
     time.sleep(5)
@@ -162,8 +169,7 @@ def open_and_validate_profile(driver: WebDriver, profile_link: str) -> bool:
         company = aria.split("Current company:")[1].split(".")[0].strip()
         if company.lower() in skip_words:
             print_lg(f"Skipping company: {company} for {profile_link}")
-            csv_profiles.add(profile_link)
-            save_seen_profiles(profile_link)
+            check_save_seen_profiles(profile_link)
             return False
 
         return True
@@ -181,14 +187,12 @@ def open_and_validate_profile(driver: WebDriver, profile_link: str) -> bool:
         except Exception:
             print_lg(
                 f"Neither current company nor experience found for {profile_link}")
-            csv_profiles.add(profile_link)
-            save_seen_profiles(profile_link)
+            check_save_seen_profiles(profile_link)
             return False
 
     finally:
         driver.close()
         driver.switch_to.window(driver.window_handles[0])
-
 
 
 def check_profile(driver: WebDriver, cards: list):
@@ -207,14 +211,13 @@ def check_profile(driver: WebDriver, cards: list):
 
             if open_and_validate_profile(driver, profile_link):
                 time.sleep(2)
-                #scroll to card
+                # scroll to card
                 driver.execute_script(
                     "arguments[0].scrollIntoView({block:'center'});", card
                 )
                 time.sleep(2)
                 message_connection(driver, message_link)
-                csv_profiles.add(profile_link)
-                save_seen_profiles(profile_link)
+                check_save_seen_profiles(profile_link)
                 time.sleep(2)
         except Exception:
             print_lg("Error checking profile, skipping")
