@@ -13,5 +13,6 @@ portfolio_link = os.getenv("PORTFOLIO_LINK")
 skip_words = list(map(str.strip, os.getenv("SKIP_WORDS", "").split(
     ","))) if os.getenv("SKIP_WORDS", "") else []
 
-connection_start = None
-connection_end = None
+message_start_index = None
+message_end_index = None
+message_count = 0

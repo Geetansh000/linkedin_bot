@@ -107,7 +107,7 @@ def make_choice(driver: WebDriver):
             text=f"Finished searching and adding connections for '{SEARCH_STRING}'. Added {connection_count} connections.", title="Connections successfully added", button="OK")
     elif choice == "Send Messages":
         print_lg("Sending messages to connections...")
-        find_connections(driver)
+        set_range(driver)
 
 
 def main():
@@ -141,8 +141,8 @@ def main():
             try:
                 print_lg("Reopening the browser...", driver)
                 driver.get("https://www.linkedin.com/feed/")
-            except Exception:
-                print_lg("Couldn't reopen the browser!")
+            except Exception as e:
+                print_lg(f"Couldn't reopen the browser! Error: {e}")
                 options, driver, actions, wait = restart_driver()
                 print_lg("Reopened the browser!", driver)
             driver.get("https://www.linkedin.com/feed/")

@@ -23,8 +23,91 @@ def send_without_note_keyboard(driver):
     driver.switch_to.active_element.send_keys(Keys.TAB)
     driver.switch_to.active_element.send_keys(Keys.TAB)
     driver.switch_to.active_element.send_keys(Keys.TAB)
+    time.sleep(3)
     driver.switch_to.active_element.send_keys(Keys.ENTER)
     time.sleep(1.5)
+
+
+def send_without_note_keyboard_alt(driver):
+
+    driver.execute_script("""
+    const el =
+      document.querySelector('[role="dialog"] button') ||
+      document.querySelector('button.artdeco-button--primary');
+    if (el) el.focus();
+    """)
+
+    time.sleep(0.2)
+    driver.switch_to.active_element.send_keys(Keys.TAB)
+    driver.switch_to.active_element.send_keys(Keys.TAB)
+    time.sleep(3)
+    driver.switch_to.active_element.send_keys(Keys.ENTER)
+    time.sleep(1.5)
+
+
+def connect_alter_buttons(driver, buttons):
+    count = 0
+    try:
+        for btn in buttons:
+            try:
+                if "connect" in btn.text.lower():
+                    driver.execute_script(
+                        "arguments[0].scrollIntoView({block:'center'});", btn)
+                    time.sleep(0.5)
+                    if btn.is_displayed() and btn.is_enabled():
+                        try:
+                            btn.click()
+                        except Exception:
+                            driver.execute_script(
+                                "arguments[0].click();", btn)
+
+                    send_without_note_keyboard_alt(driver)
+                    count += 1
+            except Exception:
+                print_lg(f"Error clicking connect button")
+                continue
+
+        return count
+    except Exception:
+        print_lg("Error in connect_alter_buttons")
+
+
+def add_profiles_from_page(driver, profile_divs) -> int:
+    connection_count = 0
+    for div in profile_divs:
+        try:
+            connect_btn = None
+            try:
+                connect_btn = div.find_element(
+                    By.XPATH, './/button[.//span[text()="Connect"]]')
+            except Exception:
+                try:
+                    connect_btn = div.find_element(
+                        By.XPATH, './/a[.//span[text()="Connect"]]')
+                except Exception:
+                    continue
+
+            driver.execute_script(
+                "arguments[0].scrollIntoView({block:'center'});", connect_btn
+            )
+            time.sleep(0.5)
+            if not (connect_btn.is_displayed() and connect_btn.is_enabled()):
+                continue
+
+            try:
+                connect_btn.click()
+            except Exception:
+                driver.execute_script(
+                    "arguments[0].click();", connect_btn)
+            try:
+                time.sleep(2)
+                send_without_note_keyboard(driver)
+                connection_count += 1
+            except Exception as e:
+                print_lg(f"Failed to connect: {e}")
+        except Exception as e:
+            print_lg(f"Error processing profile div: {e}")
+            continue
 
 
 def search_and_add_connections(driver, page=1, end=None) -> int:
@@ -45,42 +128,26 @@ def search_and_add_connections(driver, page=1, end=None) -> int:
             profile_divs = driver.find_elements(
                 By.XPATH, '//div[@data-view-name="edge-creation-connect-action"]'
             )
-
-            for div in profile_divs:
+            print_lg(f"Found {len(profile_divs)} profiles on page {page}.")
+            if not profile_divs:
                 try:
-                    connect_btn = None
-                    try:
-                        connect_btn = div.find_element(
-                            By.XPATH, './/button[.//span[text()="Connect"]]')
-                    except Exception:
-                        try:
-                            connect_btn = div.find_element(
-                                By.XPATH, './/a[.//span[text()="Connect"]]')
-                        except Exception:
-                            continue
-
-                    driver.execute_script(
-                        "arguments[0].scrollIntoView({block:'center'});", connect_btn
+                    time.sleep(5)
+                    profile_divs = driver.find_elements(
+                        By.XPATH, '//button[contains(@aria-label, "to connect")]'
                     )
-                    time.sleep(0.5)
-                    if not (connect_btn.is_displayed() and connect_btn.is_enabled()):
+                    if not profile_divs:
+                        print_lg(f"No connect buttons found on page {page}.")
+                        page += 1
                         continue
-
-                    try:
-                        connect_btn.click()
-                    except Exception:
-                        driver.execute_script(
-                            "arguments[0].click();", connect_btn)
-                    try:
-                        time.sleep(2)
-                        send_without_note_keyboard(driver)
-                        connection_count += 1
-                    except Exception as e:
-                        print_lg(f"Failed to connect: {e}")
+                    print_lg(
+                        f"Found {len(profile_divs)} profiles using alternative XPath.")
+                    connection_count += connect_alter_buttons(
+                        driver, profile_divs)
                 except Exception as e:
-                    print_lg(f"Error processing profile div: {e}")
-                    continue
-
+                    print_lg(f"Error finding profile divs: {e}")
+            else:
+                connection_count += add_profiles_from_page(
+                    driver, profile_divs)
             page += 1
             time.sleep(2)
     except:

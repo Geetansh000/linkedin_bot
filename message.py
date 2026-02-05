@@ -1,14 +1,14 @@
 import pyautogui
 from selenium.webdriver.common.by import By
 from config.text import message_text
-from config.personals import skip_words, connection_end, connection_start
+from config.personals import skip_words, message_start_index, message_end_index, message_count
 from modules.open_chrome import *
 from modules.helpers import *
 from modules.clickers_and_finders import *
 import time
 
 seen_profiles = set()
-
+counts = 0
 csv_profiles = get_profiles_from_csv()
 
 
@@ -185,9 +185,31 @@ def open_and_validate_profile(driver: WebDriver, profile_link: str) -> bool:
             return True
 
         except Exception:
-            print_lg(
-                f"Neither current company nor experience found for {profile_link}")
-            check_save_seen_profiles(profile_link)
+            try:
+                time.sleep(2)
+                experience_section = driver.find_element(
+                    By.XPATH, '//section[.//h2[text()="Experience"]]')
+                if experience_section:
+                    try:
+                        company = driver.find_element(
+                            By.XPATH,
+                            '(//section[.//h2[text()="Experience"]]//a[contains(@href,"/company/")][.//p])[1]'
+                        ).text.strip()
+                        company = company.split("\n")[1].split("·")[0].strip()
+                        if company.lower() in skip_words:
+                            print_lg(
+                                f"Skipping company: {company} for {profile_link}")
+                            check_save_seen_profiles(profile_link)
+                            return False
+                        return True
+                    except Exception:
+                        print_lg(
+                            f"Could not extract company from Experience section for {profile_link}, but section exists. Proceeding with messaging.")
+                        return True
+            except Exception:
+                print_lg(
+                    f"Neither current company nor experience found for {profile_link}")
+                check_save_seen_profiles(profile_link)
             return False
 
     finally:
@@ -197,7 +219,11 @@ def open_and_validate_profile(driver: WebDriver, profile_link: str) -> bool:
 
 def check_profile(driver: WebDriver, cards: list):
     global csv_profiles
+    global counts
     for card in cards:
+        if message_count is not None and counts >= message_count:
+            print_lg(f"Reached message limit of {message_count}, stopping.")
+            break
         try:
             profile_link = card.find_element(
                 By.XPATH, './/a[@data-view-name="connections-profile"]').get_attribute("href")
@@ -217,13 +243,14 @@ def check_profile(driver: WebDriver, cards: list):
                 )
                 time.sleep(2)
                 message_connection(driver, message_link)
+                counts += 1
                 check_save_seen_profiles(profile_link)
                 time.sleep(2)
         except Exception:
             print_lg("Error checking profile, skipping")
 
 
-def find_connections(driver: WebDriver):
+def find_connections(driver: WebDriver, start_index=None, end_index=None, message_limit=None):
     search_url = "https://www.linkedin.com/mynetwork/invite-connect/connections/"
     driver.get(search_url)
 
@@ -245,23 +272,27 @@ def find_connections(driver: WebDriver):
             elif len(cards) == old_length and len(cards) > 0:
                 break  # Exit if no new cards are found
             # Process only new cards
-            if connection_start is not None or connection_end is not None:
+            if start_index is not None or end_index is not None:
                 start = old_length
                 end = len(cards)
-                if connection_start is not None:
-                    if connection_start >= len(cards):
+                if start_index is not None:
+                    if start_index >= len(cards):
                         scroll_to_bottom(driver)
                         continue
-                    start = old_length if connection_start < old_length else connection_start
-                end = connection_end if connection_end is not None and connection_end <= len(
+                    start = old_length if start_index < old_length else start_index
+                end = end_index if end_index is not None and end_index <= len(
                     cards) else len(cards)
                 print_lg(
                     f"Processing connections from {start} to {end} {len(cards)}")
                 check_profile(driver, cards[start:end])
-                if connection_end is not None and connection_end < len(cards):
+                if end_index is not None and end_index < len(cards):
                     break  # Exit if we've reached the end
             else:
                 check_profile(driver, cards[old_length:])
+            if message_limit is not None and counts >= message_limit:
+                print_lg(
+                    f"Reached message limit of {message_limit}, stopping.")
+                break
             # Scroll to the bottom to load all connections
             scroll_to_bottom(driver)
 
@@ -272,3 +303,28 @@ def find_connections(driver: WebDriver):
         f"Finished messaging connections.")
     pyautogui.alert(
         text="Finished messaging connections.", title="Task Completed", button="OK")
+
+
+def set_range(driver):
+    global message_start_index, message_end_index, message_count
+
+    choice = pyautogui.confirm(
+        "Do you want to send messages to alter prefined range?", buttons=["From Start",  "Specific Range", "No"])
+    if choice == "From Start":
+        message_start_index = 0
+    if choice == "Specific Range":
+        message_start_index = pyautogui.prompt(
+            "Enter the start index (Leave blank for predefined):", "Start Index")
+        message_end_index = pyautogui.prompt(
+            "Enter the end index (Leave blank for predefined):", "End Index")
+        if message_start_index and message_start_index.isdigit():
+            message_start_index = int(message_start_index)
+        if message_end_index and message_end_index.isdigit():
+            message_end_index = int(message_end_index)
+    count = pyautogui.prompt(
+        "Enter the number of connections to message (Leave blank for predefined):")
+    if count and count.isdigit():
+        count = int(count)
+        message_count = count
+    find_connections(driver, message_start_index,
+                     message_end_index, message_count)
