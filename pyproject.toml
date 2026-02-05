@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "linkedIn_follow"
+version = "0.1.0"
+description = "Automate LinkedIn connection messaging and outreach."
+authors = [
+    {name = "Your Name", email = "your@email.com"}
+]
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = [
+    "selenium==4.15.2",
+    "python-dotenv==1.0.0",
+    "webdriver-manager==4.0.1",
+    "pyautogui==0.9.53",
+    "undetected-chromedriver==3.5.5",
+    "packaging==23.2",
+]
+
+[project.scripts]
+linkedin-follow = "linkedIn_follow.scripts.main:run"
