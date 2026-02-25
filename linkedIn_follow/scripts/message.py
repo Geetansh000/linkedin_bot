@@ -374,52 +374,61 @@ class ConnectionLoader:
             return False
 
     @staticmethod
-    def load_connections(driver: WebDriver) -> List[WebElement]:
-        """Load connections list with retry logic"""
+    def load_connections(driver: WebDriver) -> None:
+        """Navigate to connections page and initialize"""
         driver.get(CONNECTIONS_URL)
         wait.until(EC.presence_of_element_located((By.TAG_NAME, "body")))
         time.sleep(PAGE_LOAD_TIMEOUT)
+        print_lg("Navigated to connections page")
 
-        retry = 0
-        cards = []
+    @staticmethod
+    def get_current_cards(driver: WebDriver) -> List[WebElement]:
+        """Get currently loaded connection cards on the page"""
+        try:
+            cards = driver.find_elements(
+                By.XPATH, '//div[@data-view-name="connections-list"]')
+            return cards
+        except Exception:
+            return []
 
-        while retry < LOAD_MORE_RETRY_LIMIT:
-            try:
-                new_cards = driver.find_elements(
-                    By.XPATH, '//div[@data-view-name="connections-list"]')
+    @staticmethod
+    def scroll_to_index(driver: WebDriver, target_index: int) -> None:
+        """Scroll page until target index is reached or no more cards available"""
+        current_loaded = 0
+        retry_count = 0
+        max_retries = 5
 
-                if len(new_cards) > len(cards):
-                    cards = new_cards
-                    retry = 0
-                    print_lg(f"Loaded {len(cards)} connections")
-                else:
-                    break
+        while current_loaded < target_index and retry_count < max_retries:
+            cards = ConnectionLoader.get_current_cards(driver)
+            current_loaded = len(cards)
 
-                ConnectionLoader._load_more_connections(driver)
-                time.sleep(PAGE_WAIT_DELAY)
+            if current_loaded >= target_index:
+                print_lg(f"Reached target index {target_index}")
+                break
 
-            except Exception as e:
-                print_lg(f"Error loading connections: {e}")
-                retry += 1
+            # Scroll to load more connections
+            if not ConnectionLoader._load_more_connections(driver):
+                retry_count += 1
+            else:
+                retry_count = 0
 
-        return cards
+            time.sleep(PAGE_WAIT_DELAY)
+            print_lg(f"Currently loaded {current_loaded} cards, target {target_index}")
 
 
 def process_connections(
     driver: WebDriver,
-    cards: List[WebElement],
     start_index: Optional[int] = None,
     end_index: Optional[int] = None,
     message_limit: Optional[int] = None,
     state: Optional[MessageState] = None
 ) -> None:
-    """Process connections and send messages"""
+    """Process connections and send messages with lazy loading"""
     if state is None:
         state = MessageState()
 
-    # Determine range
+    # Determine start position
     start = start_index if start_index is not None else state.current_index
-    end = end_index if end_index is not None else len(cards)
 
     # Log appropriately based on whether we're resuming or starting
     if start_index == 0:
@@ -427,13 +436,43 @@ def process_connections(
     else:
         print_lg(f"Resuming from connection index: {start}")
 
-    # Process cards in range
-    for i, card in enumerate(cards[start:end], start=start):
-        # Update and save current index
+    # Scroll to start_index first
+    if start > 0:
+        print_lg(f"Scrolling to reach index {start}...")
+        ConnectionLoader.scroll_to_index(driver, start)
+
+    # Process connections with lazy loading
+    i = start
+    consecutive_no_new = 0
+    max_no_new_attempts = 3
+
+    while True:
+        # Get currently loaded cards
+        cards = ConnectionLoader.get_current_cards(driver)
+
+        # Check if we have the card at index i
+        if i >= len(cards):
+            # Need to load more
+            if not ConnectionLoader._load_more_connections(driver):
+                consecutive_no_new += 1
+                if consecutive_no_new >= max_no_new_attempts:
+                    print_lg("No more connections to load")
+                    break
+            else:
+                consecutive_no_new = 0
+            time.sleep(PAGE_WAIT_DELAY)
+            continue
+
+        consecutive_no_new = 0
+        card = cards[i]
         state.set_current_index(i)
 
         if message_limit and state.message_count >= message_limit:
             print_lg(f"Reached message limit of {message_limit}")
+            break
+
+        if end_index and i >= end_index:
+            print_lg(f"Reached end index {end_index}")
             break
 
         try:
@@ -446,6 +485,7 @@ def process_connections(
             ).get_attribute("href")
 
             if state.is_profile_seen(profile_link):
+                i += 1
                 continue
 
             message_link = card.find_element(
@@ -454,8 +494,7 @@ def process_connections(
 
             # Validate profile
             if not ProfileValidator.validate(driver, profile_link, state):
-                # Profile was skipped due to company or no experience
-                # It's already marked as seen in validate() method
+                i += 1
                 continue
 
             # Prepare and send message
@@ -480,7 +519,9 @@ def process_connections(
                         f"Profile marked as seen due to processing error: {profile_link}")
                 except Exception:
                     pass
-            continue
+
+        finally:
+            i += 1
 
 
 def find_connections(
@@ -498,14 +539,9 @@ def find_connections(
         state.current_index = 0
 
     try:
-        cards = ConnectionLoader.load_connections(driver)
-
-        if not cards:
-            print_lg("No connections found")
-            return
-
-        print_lg(f"Processing {len(cards)} connections")
-        process_connections(driver, cards, start_index,
+        ConnectionLoader.load_connections(driver)
+        print_lg("Starting lazy loading of connections")
+        process_connections(driver, start_index,
                             end_index, message_limit, state)
 
     except Exception as e:
@@ -615,11 +651,11 @@ def send_messages_on_interval(driver: WebDriver, start_index: int, end_index: Op
                          batch_count, interval_sending=True)
         current_index += batch_count
         wait_time = random.randint(*WAIT_INTERVAL_RANGE)
-        print_lg(f"Waiting for {wait_time} seconds before next batch...")
+        print_lg(f"Waiting for {wait_time} minutes before next batch...")
         while wait_time > 0:
             interval = random.randint(0, wait_time)
             print_lg(
-                f"Performing random actions and waiting for {interval} seconds...")
+                f"Performing random actions and waiting for {interval} minutes...")
             time.sleep(interval*60)  # Convert to seconds
             wait_time -= interval
             perform_random_actions(driver)
